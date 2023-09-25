@@ -9,7 +9,7 @@ const Room = (props) => {
     const userVideo = useRef();
     const partnerVideo = useRef();
     const peerRef = useRef();
-    const socketRef = useRef(io.connect("/"));
+    const socketRef = useRef(io("https://webrtcchatapi.onrender.com"));
     const otherUserSocketID = useRef();
     const userStream = useRef();
 
