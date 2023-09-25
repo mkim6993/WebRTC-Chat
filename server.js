@@ -4,21 +4,11 @@ const app = express();
 const server = http.createServer(app);
 const socket = require("socket.io");
 const io = socket(server);
-// const cors = require("cors");
+const cors = require("cors");
 
-// const allowedOrigins = ['http://localhost:3000'];
-
-// const corsOptions = {
-//     origin: (origin, callback) => {
-//         if (allowedOrigins.includes(origin) || !origin) {
-//             callback(null, true);
-//         } else {
-//             callback(new Error('Not allowed by CORS!!!!!!!!'));
-//         }
-//     }
-// }
-
-// app.use(cors());
+app.use(cors({
+    origin: 'https://chatapp-1fms.onrender.com/'
+}));
 
 const rooms = {};
 
@@ -51,6 +41,10 @@ io.on("connection", socket => { // when user connects to server, socket.io gener
 
     socket.on("ice-candidate", incoming => {
         io.to(incoming.target).emit("ice-candidate", incoming.candidate);
+    })
+
+    socket.on("disconnect", () => {
+        console.log("user left")
     })
 });
 
