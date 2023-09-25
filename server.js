@@ -4,6 +4,21 @@ const app = express();
 const server = http.createServer(app);
 const socket = require("socket.io");
 const io = socket(server);
+// const cors = require("cors");
+
+// const allowedOrigins = ['http://localhost:3000'];
+
+// const corsOptions = {
+//     origin: (origin, callback) => {
+//         if (allowedOrigins.includes(origin) || !origin) {
+//             callback(null, true);
+//         } else {
+//             callback(new Error('Not allowed by CORS!!!!!!!!'));
+//         }
+//     }
+// }
+
+// app.use(cors());
 
 const rooms = {};
 
@@ -17,6 +32,7 @@ io.on("connection", socket => { // when user connects to server, socket.io gener
             console.log("adding my socket:", socket.id);
             rooms[roomID] = [socket.id];
         }
+        console.log(rooms);
         const otherUser = rooms[roomID].find(id => id !== socket.id); // get socket.id of user in room of roomID that is not current user's socket.id
         if (otherUser) {
             console.log("other user found!!!:", otherUser)

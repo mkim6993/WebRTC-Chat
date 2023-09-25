@@ -1,13 +1,15 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import io from "socket.io-client";
 
 const Room = (props) => {
+    const [cameraToggle, setCameraToggle] = useState(true);
+    const [micToggle, setMicToggle] = useState(true);
     const { roomID } = useParams();
     const userVideo = useRef();
     const partnerVideo = useRef();
     const peerRef = useRef();
-    const socketRef = useRef();
+    const socketRef = useRef(io.connect("/"));
     const otherUserSocketID = useRef();
     const userStream = useRef();
 
@@ -31,7 +33,6 @@ const Room = (props) => {
             userVideo.current.muted = true;
             
             // add user to a room, identify whether someone already is in room
-            socketRef.current = io.connect("/");
             socketRef.current.emit("join-room", roomID);
             console.log("UseEFFECT: emitting: join-room")
 
@@ -170,10 +171,33 @@ const Room = (props) => {
         peerRef.current.setRemoteDescription(sdp).catch(e => console.log("receiveAnswer(): ERR", e));
     }
     
+    function toggleCamera() {
+        const videoTrack = userStream.current.getTracks().find(track => track.kind === "video");
+        if (cameraToggle) {
+            videoTrack.enabled = false;
+            setCameraToggle(false);
+        } else {
+            videoTrack.enabled = true;
+            setCameraToggle(true);
+        }
+    }
+
+    function toggleMic() {
+        const micTrack = userStream.current.getTracks().find(track => track.kind === "audio");
+        if (micToggle) {
+            micTrack.enabled = false;
+            setMicToggle(false);
+        } else {
+            micTrack.enabled = true;
+            setMicToggle(true);
+        }
+    }
 
     return (
         <div>
             <video autoPlay ref={userVideo}/>
+            <button onClick={() => toggleCamera()}>{cameraToggle ? "Camera is on" : "Camera is off"}</button>
+            <button onClick={() => toggleMic()}>{micToggle ? "Mic is on" : "Mic is off"}</button>
             <video autoPlay ref={partnerVideo}/>
         </div>
     );
