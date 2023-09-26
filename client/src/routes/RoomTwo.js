@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import io from "socket.io-client";
+import { io } from "socket.io-client";
 
 const Room = (props) => {
     const [cameraToggle, setCameraToggle] = useState(true);
