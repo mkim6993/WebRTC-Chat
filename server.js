@@ -13,7 +13,7 @@ const io = new Server(server, {
     }
 });
 
-app.use(function(req, res) {
+app.use(function(req, res, next) {
     const allowedOrigins = ["http://localhost:8001, https://chatapp-1fms.onrender.com"];
     const origin = req.headers.origin;
     if (allowedOrigins.includes(origin)) {
