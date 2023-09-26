@@ -18,6 +18,11 @@ const Room = (props) => {
         iceServers: [
             {
                 urls: ['stun:stun1.1.google.com:19302', 'stun:stun2.1.google.com:19302']
+            },
+            {
+                urls: 'turn:146.190.36.199:3478',
+                username: process.env.TURN_USERNAME,
+                credential: process.env.TURN_CREDENTIAL
             }
         ]
     }
