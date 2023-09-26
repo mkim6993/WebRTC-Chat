@@ -1,175 +1,204 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import io from "socket.io-client";
+import { io } from "socket.io-client";
 
 const Room = (props) => {
+    const [cameraToggle, setCameraToggle] = useState(true);
+    const [micToggle, setMicToggle] = useState(true);
     const { roomID } = useParams();
     const userVideo = useRef();
     const partnerVideo = useRef();
     const peerRef = useRef();
-    const socketRef = useRef();
-    const otherUser = useRef();
+    const socketRef = useRef(io("https://webrtcchatapi.onrender.com"));
+    // const socketRef = useRef(io("http://localhost:8000"));
+    const otherUserSocketID = useRef();
     const userStream = useRef();
-    const errID = useRef()
+
+    const STUN = {
+        iceServers: [
+            {
+                urls: ['stun:stun1.1.google.com:19302', 'stun:stun2.1.google.com:19302']
+            }
+        ]
+    }
 
     useEffect(() => {
-        errID.current = 0
-        console.log("useEffect");
+        console.log("useEffect!!!")
         navigator.mediaDevices.getUserMedia({ 
             video: true, 
             audio: true 
         }).then(stream => {
-            // set up current user's stream
-            console.log("userVideo:", userVideo);
+            // set up user's stream
             userVideo.current.srcObject = stream;
             userStream.current = stream;
             userVideo.current.muted = true;
-
-            // connect to socket server and emit 'join-room'
-            socketRef.current = io.connect("/");
+            
+            // add user to a room, identify whether someone already is in room
             socketRef.current.emit("join-room", roomID);
-            console.log("join-room")
-            /**
-             * when other user joins, given new user's ID, call new user
-             * For user that is joining  
-             */ 
-            socketRef.current.on("other-user", userID => {
-                callUser(userID);
-                otherUser.current = userID; // store new userID in otherUser ref
+            console.log("UseEFFECT: emitting: join-room")
+
+            // prepare to call other user
+            socketRef.current.on("other-user", userSocketID => {
+                otherUserSocketID.current = userSocketID
+                console.log("UseEffect: creating peer and appending my stream")
+                createPeerAppendStream(userSocketID);
             });
 
-            /**
-             * For user that is already in the room
-             */
-            socketRef.current.on("user-joined", userID => {
-                otherUser.current = userID;
+            // save partner's socketID
+            socketRef.current.on("user-joined", userSocketID => {
+                console.log("USEEFFECT: saving other person's socketID as otherUserSocketID");
+                otherUserSocketID.current = userSocketID
             });
 
-            socketRef.current.on("offer", handleReceiveCall);
+            socketRef.current.on("offer", receiveOffer);
 
-            socketRef.current.on("answer", handleAnswer);
+            socketRef.current.on("answer", receiveAnswer);
 
-            socketRef.current.on("ice-candidate", handleNewICECandidateMsg);
+            socketRef.current.on("ice-candidate", receiveNewIceCandidate);
         });
     }, []);
 
     /**
-     * creates peer object, attaches current user's stream data to peer object
-     * @param { ID of call recipient } userID 
+     * Create Peer object and add User's stream data to Peer's tracks
      */
-    function callUser(userID) {
-        peerRef.current = createPeer(userID);
-        // .getTracks() that exists on the stream [video, audio] then take stream and attach to the peer object
-        userStream.current.getTracks().forEach(track => peerRef.current.addTrack(track, userStream.current)); 
+    function createPeerAppendStream(userSocketID) {
+        peerRef.current = createPeer(userSocketID);
+        userStream.current.getTracks().forEach(track => peerRef.current.addTrack(track, userStream.current));
+        console.log("my stream added")
+    }
+    
+    function createPeer(userSocketID) {
+        console.log("my peer being created")
+        const peer = new RTCPeerConnection(STUN);
+
+        // on return of ICE Candidates from STUN, send ICE Candidates to other user
+        peer.onicecandidate = signalICECandidates;
+
+        // on return of video streams, display call partner's video stream
+        peer.ontrack = setUpPartnerStream;
+
+        // set and signal SDP to partner once negotiation is ready to be made
+        peer.onnegotiationneeded = () => signalOffer(userSocketID);
+        return peer;
     }
 
     /**
-     * Make peers agreement on proper connection method
-     * @param {ID of call recipient} userID 
+     * if ICE candidate exists signal it to the other user
      */
-    function createPeer(userID) {
-        const peer = new RTCPeerConnection({
-            iceServers: [
-                {
-                    urls: "stun:stun.stunprotocol.org"
-                },
-                {
-                    urls: "turn:numb.viagenie.ca",
-                    credential: "muazkh",
-                    username: "webrtc@live.com"
-                },
-            ]
-        });
-
-        peer.onicecandidate = handleICECandidateEvent; // when browser wants to find a new candidate
-        peer.ontrack = handleTrackEvent; // when remote peer is sending their stream, get and display stream
-        peer.onnegotiationneeded = () => handleNegotiationNeededEvent(userID); // handle offer, answer event
-        return peer;
-    };
-
-    function handleNegotiationNeededEvent(userID) {
-        peerRef.current.createOffer().then(offer => { // set local offer, answer & remote offer, answer
-            return peerRef.current.setLocalDescription(offer);
-        }).then(() => {
+    function signalICECandidates(event) {
+        if (event.candidate) {
+            console.log("signalICECandidate(): candidate found")
             const payload = {
-                target: userID,
+                target: otherUserSocketID.current,
+                candidate: event.candidate
+            }
+            socketRef.current.emit("ice-candidate", payload);
+            console.log("signalICECandidate(): emitting candidate")
+        }
+    }
+
+    /**
+     * once partner sends stream data, set partner's srcObject
+     */
+    function setUpPartnerStream(event) {
+        partnerVideo.current.srcObject = event.streams[0]
+        console.log("setUpParnerStream: partner stream is on");
+    }
+
+    /**
+     * Create offer and set local SDP, signal offer to target socket
+     */
+    async function signalOffer(userSocketID) {
+        try {
+            console.log("signalOffer(): creating offer, setting local desc, emitting offer")
+            const offer = await peerRef.current.createOffer();
+            await peerRef.current.setLocalDescription(offer);
+            const payload = {
+                target: userSocketID,
                 caller: socketRef.current.id,
-                sdp: peerRef.current.localDescription // offer data
+                sdp: peerRef.current.localDescription
             };
             socketRef.current.emit("offer", payload);
-            console.log("handle negotitation:", errID.current)
-            errID.current += 1
-        }).catch(e => {
-            console.log(e, errID.current)
-            errID.current += 1
-        });
+            console.log("signalOffer: offer signaled!!")
+        } catch (err) {
+            console.log("signalOffer ERROR:");
+            console.log(err);
+        }
+    }
+
+    // recipient
+
+    /**
+     * Once ICE Candidates are sent via signaling
+     */
+    function receiveNewIceCandidate(incoming) {
+        console.log("receiveNewIceCandidate(): appending other user's ice candidate to agent")
+        const candidate = new RTCIceCandidate(incoming);
+        peerRef.current.addIceCandidate(candidate).catch(e => console.log("receiveNewIceCandidate(): ERR", e));
     }
 
     /**
-     * handle call as a receiver
-     * @param { incoming payload } incoming 
+     * receive offer from caller, set remote desc, create answer, set local desc, send socket and local sdp info
+     * @param {*} incoming 
      */
-    function handleReceiveCall(incoming) {
-        peerRef.current = createPeer();
-        const desc = new RTCSessionDescription(incoming.sdp); // creates remote description using offer data
-        console.log("Incoming SDP:", incoming.sdp);
-
-        peerRef.current.setRemoteDescription(desc).then(() => {
-            userStream.current.getTracks().forEach(track => peerRef.current.addTrack(track, userStream.current)); // attaching current user's stream to peer so peer can send to other user
-        }).then(() => {
-            return peerRef.current.createAnswer();
-        }).then(answer => {
-            return peerRef.current.setLocalDescription(answer);
-        }).then(() => {
+    async function receiveOffer(incoming) {
+        try {
+            console.log("receiveOffer(): creating my peer, setting remote desc, adding my stream, creating answer, setting local desc")
+            peerRef.current = createPeer();
+            const sdp = new RTCSessionDescription(incoming.sdp);
+            await peerRef.current.setRemoteDescription(sdp);
+            userStream.current.getTracks().forEach(track => peerRef.current.addTrack(track, userStream.current));
+            const answer = await peerRef.current.createAnswer();
+            await peerRef.current.setLocalDescription(answer);
             const payload = {
                 target: incoming.caller,
                 caller: socketRef.current.id,
                 sdp: peerRef.current.localDescription
             }
-            socketRef.current.emit("answer", payload);
-        });
-    }
-
-    function handleAnswer(message) {
-        const desc = new RTCSessionDescription(message.sdp);
-        console.log("handle asnwer")
-        peerRef.current.setRemoteDescription(desc).catch(e => {
-            console.log(e, errID.current)
-            errID.current += 1
-        });
-    }
-
-    /**
-     * 
-     * @param {*} e 
-     */
-    function handleICECandidateEvent(e) {
-        if (e.candidate) { // needs to have candidate in order to create proceed
-            const payload = {
-                target: otherUser.current,
-                candidate: e.candidate,
-            }
-            socketRef.current.emit("ice-candidate", payload);
+            socketRef.current.emit("answer", payload)
+            console.log("receiveOffer(): emitted answer")
+        } catch (error) {
+            console.log("RECEIVE OFFER ERROR");
+            console.log(error);
         }
     }
 
-    function handleNewICECandidateMsg(incoming) {
-        const candidate = new RTCIceCandidate(incoming);
-        console.log("received new ice candidates")
-        peerRef.current.addIceCandidate(candidate).catch(e => {
-            console.log(e, errID.current)
-            errID.current+= 1
-        });
+    /**
+     * receive answer and set remote desc to caller's local sdp
+     */
+    function receiveAnswer(incoming) {
+        console.log("receiveAnswer(): setting my remote desc")
+        const sdp = new RTCSessionDescription(incoming.sdp);
+        peerRef.current.setRemoteDescription(sdp).catch(e => console.log("receiveAnswer(): ERR", e));
+    }
+    
+    function toggleCamera() {
+        const videoTrack = userStream.current.getTracks().find(track => track.kind === "video");
+        if (cameraToggle) {
+            videoTrack.enabled = false;
+            setCameraToggle(false);
+        } else {
+            videoTrack.enabled = true;
+            setCameraToggle(true);
+        }
     }
 
-    function handleTrackEvent(e) {
-        console.log(e.streams[0]);
-        partnerVideo.current.srcObject = e.streams[0];
+    function toggleMic() {
+        const micTrack = userStream.current.getTracks().find(track => track.kind === "audio");
+        if (micToggle) {
+            micTrack.enabled = false;
+            setMicToggle(false);
+        } else {
+            micTrack.enabled = true;
+            setMicToggle(true);
+        }
     }
 
     return (
         <div>
             <video autoPlay ref={userVideo}/>
+            <button onClick={() => toggleCamera()}>{cameraToggle ? "Camera is on" : "Camera is off"}</button>
+            <button onClick={() => toggleMic()}>{micToggle ? "Mic is on" : "Mic is off"}</button>
             <video autoPlay ref={partnerVideo}/>
         </div>
     );

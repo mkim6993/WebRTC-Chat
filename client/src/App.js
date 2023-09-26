@@ -1,7 +1,7 @@
 import React from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import CreateRoom from "./routes/CreateRoom";
-import Room from "./routes/RoomTwo";
+import Room from "./routes/Room";
 import "./App.css";
 
 function App() {

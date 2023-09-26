@@ -1,20 +1,24 @@
+/**
+ * Node.js Signaling Server
+ * Purpose:
+ * - Enables sockets to discover other sockets via record
+ */
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 require("dotenv").config();
-const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "https://chatapp-1fms.onrender.com",
+        origin: process.env.CLIENT_URL,
         // origin: "http://localhost:8001"
     }
 });
 
 app.use(function(req, res, next) {
-    const allowedOrigins = ["http://localhost:8001, https://chatapp-1fms.onrender.com"];
+    const allowedOrigins = [`http://localhost:8001, ${process.env.CLIENT_URL}`];
     const origin = req.headers.origin;
     if (allowedOrigins.includes(origin)) {
         res.setHeader("Access-Control-Allow-Origin", origin);
@@ -24,13 +28,6 @@ app.use(function(req, res, next) {
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, UPDATE");
     next();
 })
-
-// app.use(express.static(path.join(__dirname, "client/build")));
-
-// app.get("*", (req, res) => {
-//     res.sendFile(path.join(__dirname + "/client/build/index.html"));
-// })
-
 
 const rooms = {};
 const socketToRoom = {}
