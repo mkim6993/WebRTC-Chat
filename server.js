@@ -1,7 +1,6 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const cors = require("cors");
 require("dotenv").config();
 const path = require("path");
 
@@ -9,11 +8,28 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "https://chatapp-1fms.onrender.com",
+        // origin: "https://chatapp-1fms.onrender.com",
+        origin: "http://localhost:8001"
     }
 });
 
-app.use(cors());
+app.use(function(req, res) {
+    const allowedOrigins = ["http://localhost:8001, https://chatapp-1fms.onrender.com"];
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+    }
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    res.header("Access-Control-Allow-credentials", true);
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, UPDATE");
+    next();
+})
+
+// app.use(express.static(path.join(__dirname, "client/build")));
+
+// app.get("*", (req, res) => {
+//     res.sendFile(path.join(__dirname + "/client/build/index.html"));
+// })
 
 
 const rooms = {};
@@ -64,12 +80,6 @@ io.on("connection", socket => { // when user connects to server, socket.io gener
         }
     })
 });
-
-app.use(express.static(path.join(__dirname, "client/build")));
-
-app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname + "/client/build/index.html"));
-})
 
 const PORT = process.env.PORT || 8000;
 server.listen(PORT, () => {
