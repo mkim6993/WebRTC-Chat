@@ -3,6 +3,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 require("dotenv").config();
+const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
@@ -64,10 +65,10 @@ io.on("connection", socket => { // when user connects to server, socket.io gener
     })
 });
 
-app.use(express.static(path.join(__dirname, "build")));
+app.use(express.static(path.join(__dirname, "client/build")));
 
-app.get("/*", (req, res) => {
-    res.sendFile(path.join(__dirname, "build", "index.html"));
+app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname + "/client/build/index.html"));
 })
 
 const PORT = process.env.PORT || 8000;
