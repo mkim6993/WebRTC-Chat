@@ -27,6 +27,7 @@ In order to create peer-to-peer connections, a multitude of processes must take 
 Only once User's exchange ICE candidates and set their local and remote SDP's, WebRTC can establish a Peer-to-Peer connection and exchange data/media streams over UDP.
 
 Here's a interactive program to help you conceptualize these processes(without signaling): https://divanov11.github.io/WebRTC-Simple-SDP-Handshake-Demo/
+
 Read more on media streams, ICE candidates, STUN and TURN servers, and Local/Remote SDPs here: https://webrtc.org/getting-started/overview
 
 This project also includes a signaling server that aids with the proccesses above. The signaling server utilizes the Socket.io API to enable real-time, bidrectional, and event-based communication between the server and clients. 
