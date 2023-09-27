@@ -13,7 +13,6 @@ const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
         origin: process.env.CLIENT_URL,
-        // origin: "http://localhost:8001"
     }
 });
 
@@ -35,19 +34,15 @@ const socketToRoom = {}
 io.on("connection", socket => { // when user connects to server, socket.io generates a socket
     socket.on("join-room", roomID => { // 'socket' event listener on 'join-room', pulling roomID
         if (rooms[roomID]) { // if room already exists in 'rooms'
-            console.log("someone already in room")
             rooms[roomID].push(socket.id); // push socket.id to specified room at roomID
             socketToRoom[socket.id] = roomID
         } else {
-            console.log("im first to roomID:", roomID)
-            console.log("adding my socket:", socket.id);
             rooms[roomID] = [socket.id];
             socketToRoom[socket.id] = roomID
         }
         console.log(rooms);
         const otherUser = rooms[roomID].find(id => id !== socket.id); // get socket.id of user in room of roomID that is not current user's socket.id
         if (otherUser) {
-            console.log("other user found!!!:", otherUser)
             socket.emit("other-user", otherUser); // emit to 'socket' with otherUser: socket.id
             socket.to(otherUser).emit("user-joined", socket.id); // emit to otherUser: socket.id, 'user-joined' with current user's socket.id
         }
@@ -66,7 +61,6 @@ io.on("connection", socket => { // when user connects to server, socket.io gener
     })
 
     socket.on("disconnect", () => {
-        console.log("user left", socket.id);
         const roomID = socketToRoom[socket.id];
         if (rooms[roomID]) {
             rooms[roomID] = rooms[roomID].filter(userID => userID !== socket.id);

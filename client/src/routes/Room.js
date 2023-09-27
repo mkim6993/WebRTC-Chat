@@ -9,8 +9,7 @@ const Room = (props) => {
     const userVideo = useRef();
     const partnerVideo = useRef();
     const peerRef = useRef();
-    const socketRef = useRef(io("https://webrtcchatapi.onrender.com"));
-    // const socketRef = useRef(io("http://localhost:8000"));
+    const socketRef = useRef(io(process.env.REACT_APP_SERVER_URL));
     const otherUserSocketID = useRef();
     const userStream = useRef();
     const STUN = {
@@ -19,7 +18,7 @@ const Room = (props) => {
                 urls: ['stun:stun1.1.google.com:19302', 'stun:stun2.1.google.com:19302']
             },
             {
-                urls: ['turn:turn.minsung.app:3478'],
+                urls: [process.env.REACT_APP_TURN_URL],
                 username: process.env.REACT_APP_TURN_USERNAME,
                 credential: process.env.REACT_APP_TURN_CREDENTIAL
             }
@@ -27,7 +26,6 @@ const Room = (props) => {
     }
 
     useEffect(() => {
-        console.log("useEffect!!!")
         navigator.mediaDevices.getUserMedia({ 
             video: true, 
             audio: true 
@@ -39,18 +37,15 @@ const Room = (props) => {
             
             // add user to a room, identify whether someone already is in room
             socketRef.current.emit("join-room", roomID);
-            console.log("UseEFFECT: emitting: join-room")
 
             // prepare to call other user
             socketRef.current.on("other-user", userSocketID => {
                 otherUserSocketID.current = userSocketID
-                console.log("UseEffect: creating peer and appending my stream")
                 createPeerAppendStream(userSocketID);
             });
 
             // save partner's socketID
             socketRef.current.on("user-joined", userSocketID => {
-                console.log("USEEFFECT: saving other person's socketID as otherUserSocketID");
                 otherUserSocketID.current = userSocketID
             });
 
@@ -68,11 +63,9 @@ const Room = (props) => {
     function createPeerAppendStream(userSocketID) {
         peerRef.current = createPeer(userSocketID);
         userStream.current.getTracks().forEach(track => peerRef.current.addTrack(track, userStream.current));
-        console.log("my stream added")
     }
     
     function createPeer(userSocketID) {
-        console.log("my peer being created")
         const peer = new RTCPeerConnection(STUN);
 
         // on return of ICE Candidates from STUN, send ICE Candidates to other user
@@ -91,13 +84,11 @@ const Room = (props) => {
      */
     function signalICECandidates(event) {
         if (event.candidate) {
-            console.log("signalICECandidate(): candidate found")
             const payload = {
                 target: otherUserSocketID.current,
                 candidate: event.candidate
             }
             socketRef.current.emit("ice-candidate", payload);
-            console.log("signalICECandidate(): emitting candidate")
         }
     }
 
@@ -106,7 +97,6 @@ const Room = (props) => {
      */
     function setUpPartnerStream(event) {
         partnerVideo.current.srcObject = event.streams[0]
-        console.log("setUpParnerStream: partner stream is on");
     }
 
     /**
@@ -114,7 +104,6 @@ const Room = (props) => {
      */
     async function signalOffer(userSocketID) {
         try {
-            console.log("signalOffer(): creating offer, setting local desc, emitting offer")
             const offer = await peerRef.current.createOffer();
             await peerRef.current.setLocalDescription(offer);
             const payload = {
@@ -123,9 +112,7 @@ const Room = (props) => {
                 sdp: peerRef.current.localDescription
             };
             socketRef.current.emit("offer", payload);
-            console.log("signalOffer: offer signaled!!")
         } catch (err) {
-            console.log("signalOffer ERROR:");
             console.log(err);
         }
     }
@@ -136,7 +123,6 @@ const Room = (props) => {
      * Once ICE Candidates are sent via signaling
      */
     function receiveNewIceCandidate(incoming) {
-        console.log("receiveNewIceCandidate(): appending other user's ice candidate to agent")
         const candidate = new RTCIceCandidate(incoming);
         peerRef.current.addIceCandidate(candidate).catch(e => console.log("receiveNewIceCandidate(): ERR", e));
     }
@@ -147,7 +133,6 @@ const Room = (props) => {
      */
     async function receiveOffer(incoming) {
         try {
-            console.log("receiveOffer(): creating my peer, setting remote desc, adding my stream, creating answer, setting local desc")
             peerRef.current = createPeer();
             const sdp = new RTCSessionDescription(incoming.sdp);
             await peerRef.current.setRemoteDescription(sdp);
@@ -160,7 +145,6 @@ const Room = (props) => {
                 sdp: peerRef.current.localDescription
             }
             socketRef.current.emit("answer", payload)
-            console.log("receiveOffer(): emitted answer")
         } catch (error) {
             console.log("RECEIVE OFFER ERROR");
             console.log(error);
@@ -171,7 +155,6 @@ const Room = (props) => {
      * receive answer and set remote desc to caller's local sdp
      */
     function receiveAnswer(incoming) {
-        console.log("receiveAnswer(): setting my remote desc")
         const sdp = new RTCSessionDescription(incoming.sdp);
         peerRef.current.setRemoteDescription(sdp).catch(e => console.log("receiveAnswer(): ERR", e));
     }
