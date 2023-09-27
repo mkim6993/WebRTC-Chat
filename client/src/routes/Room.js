@@ -13,13 +13,15 @@ const Room = (props) => {
     // const socketRef = useRef(io("http://localhost:8000"));
     const otherUserSocketID = useRef();
     const userStream = useRef();
-
     const STUN = {
         iceServers: [
             {
-                urls: 'turn:turn.minsung.app:3478',
-                username: process.env.TURN_USERNAME,
-                credential: process.env.TURN_CREDENTIAL
+                urls: ['stun:stun1.1.google.com:19302', 'stun:stun2.1.google.com:19302']
+            },
+            {
+                urls: ['turn:turn.minsung.app:3478'],
+                username: process.env.REACT_APP_TURN_USERNAME,
+                credential: process.env.REACT_APP_TURN_CREDENTIAL
             }
         ]
     }
