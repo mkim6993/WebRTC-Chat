@@ -78,6 +78,8 @@ Start the client-side application by running `yarn start` in the client director
 
 Navigate to `http://localhost:YOUR_REACT_PORT`.
 
+Create a room and share your URL with another User.
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
