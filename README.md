@@ -24,7 +24,7 @@ In order to create peer-to-peer connections, a multitude of processes must take 
 3. <strong>User must generate and send ICE candidates to another Peer</strong>
 4. <strong>User must set Local and Remote SDP's via offer/answer system</strong>
 
-After User's exchange ICE candidates and set their local and remote SDP's, WebRTC can then establish a Peer-to-Peer connection and exchange data/media streams over UDP.
+After Users exchange ICE candidates and set their local and remote SDP's, WebRTC can then establish a Peer-to-Peer connection and exchange data/media streams over UDP.
 
 Here's a interactive program to help you conceptualize these processes(without signaling): https://divanov11.github.io/WebRTC-Simple-SDP-Handshake-Demo/
 
